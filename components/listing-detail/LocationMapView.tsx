@@ -1,9 +1,9 @@
 'use client';
 
 import 'leaflet/dist/leaflet.css';
-import React from 'react';
+import React, { useEffect } from 'react';
 import L from 'leaflet';
-import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from 'react-leaflet';
+import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 
 // Pin biru berbentuk tetesan (ujung bawah = koordinat)
 const pinIcon = L.divIcon({
@@ -21,16 +21,27 @@ const pinIcon = L.divIcon({
 
 /** Scroll-zoom hanya aktif setelah peta diklik, supaya scroll halaman (Lenis) tidak terganggu. */
 function CooperativeScroll() {
-  const map = useMapEvents({
-    focus: () => {
+  const map = useMap();
+
+  useEffect(() => {
+    const el = map.getContainer();
+    const onFocus = () => {
       map.scrollWheelZoom.enable();
-      map.getContainer().setAttribute('data-lenis-prevent-wheel', '');
-    },
-    blur: () => {
+      el.setAttribute('data-lenis-prevent-wheel', '');
+    };
+    const onBlur = () => {
       map.scrollWheelZoom.disable();
-      map.getContainer().removeAttribute('data-lenis-prevent-wheel');
-    },
-  });
+      el.removeAttribute('data-lenis-prevent-wheel');
+    };
+
+    el.addEventListener('focus', onFocus);
+    el.addEventListener('blur', onBlur);
+    return () => {
+      el.removeEventListener('focus', onFocus);
+      el.removeEventListener('blur', onBlur);
+    };
+  }, [map]);
+
   return null;
 }
 

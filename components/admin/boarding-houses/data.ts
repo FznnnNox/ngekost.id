@@ -10,7 +10,7 @@ export type BoardingHouse = {
   address: string;
   latitude: number;
   longitude: number;
-  ownerWhatsapp: string;
+  ownerWhatsapp?: string;
   owner_whatsapp?: string;
 };
 

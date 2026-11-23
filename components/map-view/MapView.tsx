@@ -1,54 +1,9 @@
-// 'use client';
-
-// import 'leaflet/dist/leaflet.css';
-// import L from 'leaflet';
-// import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-// import { kostMarkers, SERANG_CENTER } from './data';
-
-// // Perbaikan icon marker default Leaflet yang sering hilang di Next.js
-// const markerIcon = L.icon({
-//   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-//   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-//   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-//   iconSize: [25, 41],
-//   iconAnchor: [12, 41],
-//   popupAnchor: [1, -34],
-//   shadowSize: [41, 41],
-// });
-
-// export default function MapView() {
-//   return (
-//     <MapContainer
-//       center={SERANG_CENTER}
-//       zoom={13}
-//       scrollWheelZoom={false}
-//       style={{ height: '500px', width: '100%', borderRadius: '12px' }}
-//     >
-//       <TileLayer
-//         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-//         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-//       />
-
-//       {kostMarkers.map((kost) => (
-//         <Marker key={kost.id} position={[kost.lat, kost.lng]} icon={markerIcon}>
-//           <Popup>
-//             <strong>{kost.name}</strong>
-//             <br />
-//             {kost.address}
-//             <br />
-//             Rp {kost.price.toLocaleString('id-ID')} / bulan
-//           </Popup>
-//         </Marker>
-//       ))}
-//     </MapContainer>
-//   );
-// }
 'use client';
 
 import 'leaflet/dist/leaflet.css';
 import React, { useEffect, useMemo, useRef } from 'react';
 import L from 'leaflet';
-import { AttributionControl, MapContainer, Marker, TileLayer, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
+import { AttributionControl, MapContainer, Marker, TileLayer, ZoomControl, useMap } from 'react-leaflet';
 import {
   SERANG_BOUNDS,
   SERANG_CENTER,
@@ -57,7 +12,7 @@ import {
   type KostType,
 } from '@/components/map-view/data';
 
-const ACTIVE = '#111111'; 
+const ACTIVE = '#111111';
 const typeColor: Record<KostType, string> = {
   Female: '#ff7eb6',
   Male: '#5b8cff',
@@ -119,10 +74,21 @@ function FlyToSelected({ item }: { item?: KostMarker }) {
 
 /** Scroll-zoom hanya aktif setelah peta diklik, supaya scroll halaman tidak terganggu. */
 function CooperativeScroll() {
-  const map = useMapEvents({
-    focus: () => map.scrollWheelZoom.enable(),
-    blur: () => map.scrollWheelZoom.disable(),
-  });
+  const map = useMap();
+
+  useEffect(() => {
+    const el = map.getContainer();
+    const onFocus = () => map.scrollWheelZoom.enable();
+    const onBlur = () => map.scrollWheelZoom.disable();
+
+    el.addEventListener('focus', onFocus);
+    el.addEventListener('blur', onBlur);
+    return () => {
+      el.removeEventListener('focus', onFocus);
+      el.removeEventListener('blur', onBlur);
+    };
+  }, [map]);
+
   return null;
 }
 
@@ -153,7 +119,6 @@ export default function MapView({ items, selectedId, onSelect }: Props) {
       className="h-full w-full"
       style={{ background: '#eceae6', fontFamily: 'inherit' }}
     >
-      {/* Tile OpenStreetMap, sedikit dipucatkan agar terasa bersih dan modern */}
       <TileLayer
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         maxZoom={19}
