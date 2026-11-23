@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Bath,
   Heart,
+  Check,
   MapPin,
   Mars,
   Maximize2,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 import type { Kind, Listing, Tag } from "@/components/listings/data";
 import ImageModal from "@/components/listings/ImageModal";
+import { supabase } from "@/lib/supabase";
 
 const tagIcon: Record<
   Tag,
@@ -50,12 +52,31 @@ export default function ListingCard({
   saved,
   onToggleSaved,
 }: Props) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(false);
   const closeModal = useCallback(() => setOpen(false), []);
 
   const filledStars = Math.round(l.rating);
   const kind = kindStyle[l.type];
   const KindIcon = kind.icon;
+
+  const handleBookNow = async () => {
+    setCheckingAuth(true);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const targetUrl = `/listings/${l.slug}`;
+
+      if (!data.session) {
+        router.push(`/login?next=${encodeURIComponent(targetUrl)}`);
+        return;
+      }
+
+      router.push(targetUrl);
+    } finally {
+      setCheckingAuth(false);
+    }
+  };
 
   return (
     <article className="group flex flex-col text-[#ededed]">
@@ -139,7 +160,7 @@ export default function ListingCard({
 
         <ul className="mt-4 flex flex-wrap gap-2">
           {l.tags.map((t) => {
-            const Icon = tagIcon[t];
+            const Icon = tagIcon[t] || Check;
             return (
               <li
                 key={t}
@@ -160,12 +181,14 @@ export default function ListingCard({
         </div>
 
         <div className="mt-4 flex items-center gap-3">
-          <Link
-            href="/listings/cedar-house"
-            className="flex h-11 flex-1 items-center justify-center rounded-full bg-[#ededed] text-[13px] font-medium text-[#111] transition-colors hover:bg-white"
+          <button
+            type="button"
+            onClick={handleBookNow}
+            disabled={checkingAuth}
+            className="flex h-11 flex-1 cursor-pointer items-center justify-center rounded-full bg-[#ededed] text-[13px] font-medium text-[#111] transition-colors hover:bg-white disabled:opacity-60"
           >
-            Book now
-          </Link>
+            {checkingAuth ? "Checking..." : "Book now"}
+          </button>
           <button
             type="button"
             onClick={() => onToggleSaved(l.name)}
@@ -173,7 +196,7 @@ export default function ListingCard({
             aria-label={
               saved ? `Remove ${l.name} from saved` : `Save ${l.name}`
             }
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white/10"
+            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white/10"
           >
             <Heart
               className={`h-4 w-4 ${saved ? "fill-[#ee4b5f] text-[#ee4b5f]" : ""}`}

@@ -28,3 +28,10 @@ body {
   color: var(--foreground);
   font-family: Poppins, sans-serif;
 }
+
+.tox.tox-tinymce,
+.tox.tox-tinymce:focus-within,
+.tox .tox-edit-area::before {
+  border-color: #e5e5e5 !important;
+  outline: none !important;
+}

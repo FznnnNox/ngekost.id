@@ -1,11 +1,15 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import FilterBar, { type PriceRange } from '@/components/find-kos/FilterBar';
-import ResultsHeader, { type Sort, type TypeFilter, typeFilters } from '@/components/find-kos/ResultsHeader';
+import ResultsHeader, {
+  type Sort,
+  type TypeFilter,
+  typeFilters,
+} from '@/components/find-kos/ResultsHeader';
 import KosCard from '@/components/find-kos/KosCard';
 import KosMapDynamic from '@/components/find-kos/KosMapDynamic';
-import { kosList } from '@/components/find-kos/data';
+import { fetchDynamicKosList, type Kos } from '@/components/find-kos/data';
 
 const priceMatch = (price: number, range: PriceRange) =>
   range === 'any' ||
@@ -14,29 +18,51 @@ const priceMatch = (price: number, range: PriceRange) =>
   (range === 'high' && price > 1_000_000);
 
 export default function FindKosView() {
+  const [kosList, setKosList] = useState<Kos[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [query, setQuery] = useState('');
   const [price, setPrice] = useState<PriceRange>('any');
-  const [maxDistance, setMaxDistance] = useState(1500);
+  const [maxDistance, setMaxDistance] = useState<number>(50_000);
   const [type, setType] = useState<TypeFilter>('All');
   const [sort, setSort] = useState<Sort>('nearest');
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [hoveredId, setHoveredId] = useState<number | null>(null);
 
-  // Filter selain tipe, supaya jumlah di tombol tipe ikut berubah
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      setLoading(true);
+      const data = await fetchDynamicKosList();
+      if (!active) return;
+      setKosList(data);
+      setLoading(false);
+    }
+    load();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const base = useMemo(() => {
     const q = query.trim().toLowerCase();
     return kosList.filter(
       (k) =>
-        (q === '' || k.name.toLowerCase().includes(q) || k.area.toLowerCase().includes(q)) &&
+        (q === '' ||
+          k.name.toLowerCase().includes(q) ||
+          k.area.toLowerCase().includes(q)) &&
         priceMatch(k.price, price) &&
-        k.distance <= maxDistance,
+        (maxDistance <= 0 || k.distance <= maxDistance),
     );
-  }, [query, price, maxDistance]);
+  }, [kosList, query, price, maxDistance]);
 
   const counts = useMemo(
     () =>
       Object.fromEntries(
-        typeFilters.map((t) => [t, t === 'All' ? base.length : base.filter((k) => k.type === t).length]),
+        typeFilters.map((t) => [
+          t,
+          t === 'All' ? base.length : base.filter((k) => k.type === t).length,
+        ]),
       ) as Record<TypeFilter, number>,
     [base],
   );
@@ -54,7 +80,7 @@ export default function FindKosView() {
   const reset = () => {
     setQuery('');
     setPrice('any');
-    setMaxDistance(1500);
+    setMaxDistance(50_000);
     setType('All');
     setSort('nearest');
     setSelectedId(null);
@@ -70,27 +96,48 @@ export default function FindKosView() {
         maxDistance={maxDistance}
         onMaxDistance={setMaxDistance}
         onReset={reset}
-        onSubmit={() => document.getElementById('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        onSubmit={() =>
+          document
+            .getElementById('results')
+            ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
       />
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_440px] xl:grid-cols-[minmax(0,1fr)_380px]">
-        {/* Peta: di atas daftar pada layar kecil */}
         <div className="h-[380px] lg:sticky lg:top-24 lg:order-2 lg:h-[calc(100vh-8rem)] lg:min-h-[560px]">
-          <KosMapDynamic items={shown} selectedId={selectedId} hoveredId={hoveredId} onSelect={setSelectedId} />
+          <KosMapDynamic
+            items={shown}
+            selectedId={selectedId}
+            hoveredId={hoveredId}
+            onSelect={setSelectedId}
+          />
         </div>
 
-        {/* Daftar kosan */}
         <section
           id="results"
           aria-label="Kosan results"
           className="scroll-mt-24 rounded-[28px] bg-white p-5 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.25)] ring-1 ring-black/5 sm:p-6 lg:order-1"
         >
-          <ResultsHeader type={type} onType={setType} counts={counts} sort={sort} onSort={setSort} />
+          <ResultsHeader
+            type={type}
+            onType={setType}
+            counts={counts}
+            sort={sort}
+            onSort={setSort}
+          />
 
-          {shown.length === 0 ? (
+          {loading ? (
+            <div className="mt-6 rounded-2xl border border-black/10 p-10 text-center text-[14px] text-[#777]">
+              Loading kosan near UNPAM Serang…
+            </div>
+          ) : shown.length === 0 ? (
             <div className="mt-6 rounded-2xl border border-dashed border-black/15 p-10 text-center text-[14px] text-[#777]">
               No kosan matches your filters.{' '}
-              <button type="button" onClick={reset} className="font-medium text-[#111] underline underline-offset-4">
+              <button
+                type="button"
+                onClick={reset}
+                className="font-medium text-[#111] underline underline-offset-4"
+              >
                 Reset filters
               </button>
             </div>

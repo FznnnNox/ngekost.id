@@ -8,7 +8,6 @@ export type Faq = {
   answer: string;
 };
 
-// Ganti dengan nomor WhatsApp asli (format internasional tanpa +, contoh: 6281234567890)
 export const WHATSAPP_URL = 'https://wa.me/6281200000000';
 
 export const faqs: Faq[] = [

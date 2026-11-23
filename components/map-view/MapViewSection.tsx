@@ -6,7 +6,11 @@ import SectionHeading from '@/components/sections/SectionHeading';
 import MapViewDynamic from '@/components/map-view/MapViewDynamic';
 import KostListItem from '@/components/map-view/KostListItem';
 import KostPopupCard from '@/components/map-view/KostPopupCard';
-import { kostMarkers, type KostType } from '@/components/map-view/data';
+import {
+  fetchDynamicKostMarkers,
+  type KostMarker,
+  type KostType,
+} from '@/components/map-view/data';
 
 const typeFilters = ['All', 'Male', 'Female', 'Mixed'] as const;
 type TypeFilter = (typeof typeFilters)[number];
@@ -19,33 +23,56 @@ const sorts = [
 type Sort = (typeof sorts)[number]['value'];
 
 export default function MapViewSection() {
+  const [markers, setMarkers] = useState<KostMarker[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [type, setType] = useState<TypeFilter>('All');
   const [sort, setSort] = useState<Sort>('default');
-  const [selectedId, setSelectedId] = useState<number | null>(kostMarkers[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      setLoading(true);
+      const data = await fetchDynamicKostMarkers();
+      if (!active) return;
+      setMarkers(data);
+      setSelectedId((prev) => prev ?? data[0]?.id ?? null);
+      setLoading(false);
+    }
+    load();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = kostMarkers.filter(
+    const list = markers.filter(
       (k) =>
         (type === 'All' || k.type === (type as KostType)) &&
-        (q === '' || k.name.toLowerCase().includes(q) || k.address.toLowerCase().includes(q)),
+        (q === '' ||
+          k.name.toLowerCase().includes(q) ||
+          k.address.toLowerCase().includes(q)),
     );
     if (sort === 'low') return [...list].sort((a, b) => a.price - b.price);
     if (sort === 'high') return [...list].sort((a, b) => b.price - a.price);
     return list;
-  }, [query, type, sort]);
+  }, [markers, query, type, sort]);
 
   const selected = visible.find((k) => k.id === selectedId) ?? null;
 
-  // Gulir daftar ke item terpilih (hanya di dalam daftar, bukan halaman)
   useEffect(() => {
     const box = listRef.current;
     const el = box?.querySelector<HTMLElement>('[aria-current="true"]');
     if (!box || !el) return;
-    const out = el.offsetTop < box.scrollTop || el.offsetTop + el.offsetHeight > box.scrollTop + box.clientHeight;
-    if (out) box.scrollTo({ top: Math.max(el.offsetTop - 8, 0), behavior: 'smooth' });
+    const out =
+      el.offsetTop < box.scrollTop ||
+      el.offsetTop + el.offsetHeight > box.scrollTop + box.clientHeight;
+    if (out) {
+      box.scrollTo({ top: Math.max(el.offsetTop - 8, 0), behavior: 'smooth' });
+    }
   }, [selectedId]);
 
   return (
@@ -81,7 +108,9 @@ export default function MapViewSection() {
                   onClick={() => setType(f)}
                   aria-pressed={type === f}
                   className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
-                    type === f ? 'bg-[#111] text-white' : 'bg-[#f3f3f1] text-[#444] hover:bg-[#ebebe8]'
+                    type === f
+                      ? 'bg-[#111] text-white'
+                      : 'bg-[#f3f3f1] text-[#444] hover:bg-[#ebebe8]'
                   }`}
                 >
                   {f}
@@ -106,20 +135,29 @@ export default function MapViewSection() {
             </div>
 
             <p className="text-[12px] text-[#777]">
-              {visible.length} kosan found
+              {loading ? 'Loading kosan…' : `${visible.length} kosan found`}
             </p>
 
             <ul
               ref={listRef}
               className="relative -mr-2 max-h-[340px] flex-1 space-y-2 overflow-y-auto pr-2 [scrollbar-color:#cfcfcc_transparent] [scrollbar-width:thin] lg:max-h-none"
             >
-              {visible.length === 0 ? (
+              {loading ? (
+                <li className="rounded-2xl border border-black/10 p-6 text-center text-[13px] text-[#777]">
+                  Memuat daftar kosan dari database…
+                </li>
+              ) : visible.length === 0 ? (
                 <li className="rounded-2xl border border-dashed border-black/15 p-6 text-center text-[13px] text-[#777]">
                   No kosan matches your search. Try a different name or area.
                 </li>
               ) : (
                 visible.map((k) => (
-                  <KostListItem key={k.id} kost={k} selected={k.id === selectedId} onSelect={setSelectedId} />
+                  <KostListItem
+                    key={k.id}
+                    kost={k}
+                    selected={k.id === selectedId}
+                    onSelect={setSelectedId}
+                  />
                 ))
               )}
             </ul>
@@ -127,11 +165,16 @@ export default function MapViewSection() {
 
           {/* Peta */}
           <div className="relative h-[460px] lg:h-[640px]">
-            {/* `isolate` menjaga z-index internal Leaflet tetap di bawah kartu detail */}
             <div className="isolate h-full w-full">
-              <MapViewDynamic items={visible} selectedId={selected?.id ?? null} onSelect={setSelectedId} />
+              <MapViewDynamic
+                items={visible}
+                selectedId={selected?.id ?? null}
+                onSelect={setSelectedId}
+              />
             </div>
-            {selected && <KostPopupCard kost={selected} onClose={() => setSelectedId(null)} />}
+            {selected && (
+              <KostPopupCard kost={selected} onClose={() => setSelectedId(null)} />
+            )}
           </div>
         </div>
       </div>
