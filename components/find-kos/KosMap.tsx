@@ -15,7 +15,6 @@ import {
 import MapControls from '@/components/find-kos/MapControls';
 import {
   UNPAM_ADDRESS,
-  UNPAM_CENTER,
   UNPAM_MAPS_URL,
   UNPAM_NAME,
   ZONE_RADIUS,
@@ -25,6 +24,12 @@ import {
 } from '@/components/find-kos/data';
 
 const ACCENT = '#0f7b62';
+
+// Titik koordinat resmi Universitas Pamulang (UNPAM) Kampus Serang
+const UNPAM_COORDS: [number, number] = [
+  -6.121254714844191,
+  106.20603540755263,
+];
 
 const esc = (s: string) =>
   s.replace(
@@ -119,7 +124,7 @@ export default function KosMap({ items, selectedId, hoveredId, onSelect }: Props
   selectedRef.current = selectedId;
 
   const zoneBounds = useMemo(
-    () => L.latLng(UNPAM_CENTER).toBounds(ZONE_RADIUS * 2),
+    () => L.latLng(UNPAM_COORDS).toBounds(ZONE_RADIUS * 2),
     [],
   );
   const zoomSize = sizeFromZoom(zoom);
@@ -132,8 +137,8 @@ export default function KosMap({ items, selectedId, hoveredId, onSelect }: Props
   const midPoint = useMemo<[number, number] | null>(() => {
     if (!selectedKos) return null;
     return [
-      (UNPAM_CENTER[0] + selectedKos.lat) / 2,
-      (UNPAM_CENTER[1] + selectedKos.lng) / 2,
+      (UNPAM_COORDS[0] + selectedKos.lat) / 2,
+      (UNPAM_COORDS[1] + selectedKos.lng) / 2,
     ];
   }, [selectedKos]);
 
@@ -163,7 +168,7 @@ export default function KosMap({ items, selectedId, hoveredId, onSelect }: Props
   const fitToItems = (instant = false) => {
     if (!map) return;
     const points: [number, number][] = [
-      UNPAM_CENTER,
+      UNPAM_COORDS,
       ...items.map((k): [number, number] => [k.lat, k.lng]),
     ];
     map.fitBounds(L.latLngBounds(points), {
@@ -186,7 +191,7 @@ export default function KosMap({ items, selectedId, hoveredId, onSelect }: Props
     prevSelected.current = selectedId;
     const k = items.find((i) => i.id === selectedId);
     if (k) {
-      const pairBounds = L.latLngBounds([UNPAM_CENTER, [k.lat, k.lng]]);
+      const pairBounds = L.latLngBounds([UNPAM_COORDS, [k.lat, k.lng]]);
       map.fitBounds(pairBounds, {
         paddingTopLeft: [70, 80],
         paddingBottomRight: [70, 60],
@@ -230,7 +235,11 @@ export default function KosMap({ items, selectedId, hoveredId, onSelect }: Props
   };
 
   const directionsUrl = selectedKos
-    ? `https://www.google.com/maps/dir/?api=1&origin=${UNPAM_CENTER[0]},${UNPAM_CENTER[1]}&destination=${selectedKos.lat},${selectedKos.lng}`
+    ? `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(
+        `${UNPAM_COORDS[0]},${UNPAM_COORDS[1]}`,
+      )}&destination=${encodeURIComponent(
+        `${selectedKos.lat},${selectedKos.lng}`,
+      )}&travelmode=driving`
     : null;
 
   return (
@@ -259,7 +268,7 @@ export default function KosMap({ items, selectedId, hoveredId, onSelect }: Props
 
         {zoneOn && (
           <Circle
-            center={UNPAM_CENTER}
+            center={UNPAM_COORDS}
             radius={ZONE_RADIUS}
             pathOptions={{
               color: ACCENT,
@@ -275,7 +284,7 @@ export default function KosMap({ items, selectedId, hoveredId, onSelect }: Props
         {selectedKos && midPoint && (
           <>
             <Polyline
-              positions={[UNPAM_CENTER, [selectedKos.lat, selectedKos.lng]]}
+              positions={[UNPAM_COORDS, [selectedKos.lat, selectedKos.lng]]}
               pathOptions={{
                 color: ACCENT,
                 weight: 3.5,
@@ -295,7 +304,7 @@ export default function KosMap({ items, selectedId, hoveredId, onSelect }: Props
 
         {/* Marker Universitas Pamulang Serang (bisa diklik -> lihat di Google Maps) */}
         <Marker
-          position={UNPAM_CENTER}
+          position={UNPAM_COORDS}
           icon={campusIcon}
           title={UNPAM_NAME}
           zIndexOffset={2000}

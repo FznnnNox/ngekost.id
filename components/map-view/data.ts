@@ -7,7 +7,7 @@ export type KostMarker = {
   slug: string;
   name: string;
   address: string;
-  price: number; // per bulan (Rupiah)
+  price: number; 
   lat: number;
   lng: number;
   type: KostType;
@@ -17,6 +17,22 @@ export type KostMarker = {
   description: string;
   img?: string;
 };
+
+export const UNPAM_SERANG = {
+  name: 'Universitas Pamulang (UNPAM) Kampus Serang',
+  lat: -6.121254714844191,
+  lng: 106.20603540755263,
+};
+
+export function getDirectionsUrlFromUnpam(
+  destLat: number,
+  destLng: number,
+  travelMode: 'driving' | 'walking' | 'bicycling' | 'transit' = 'driving',
+) {
+  const origin = `${UNPAM_SERANG.lat},${UNPAM_SERANG.lng}`;
+  const destination = `${destLat},${destLng}`;
+  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=${travelMode}`;
+}
 
 // Titik tengah peta (Kota Serang)
 export const SERANG_CENTER: [number, number] = [-6.1201, 106.1503];
