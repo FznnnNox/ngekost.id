@@ -19,7 +19,11 @@ import { Toast } from '@/components/admin/ui/Toast';
 import { DeleteBoardingHouseModal } from '@/components/admin/boarding-houses/DeleteBoardingHouseModal';
 
 type HouseForm = Omit<BoardingHouse, 'id'>;
+type RoomForm = Omit<Room, 'id' | 'boardingHouseId'>;
 type ToastState = { id: number; message: string; variant: 'success' | 'error' } | null;
+
+const UNPAM_DEFAULT_LAT = -6.121254714844191;
+const UNPAM_DEFAULT_LNG = 106.20603540755263;
 
 const card = 'rounded-[22px] bg-[#1c1c1c] text-[#ededed]';
 const iconBtn =
@@ -34,8 +38,8 @@ const emptyForm = (): HouseForm => ({
   description: '',
   price: 650000,
   address: '',
-  latitude: -6.1154,
-  longitude: 106.1503,
+  latitude: UNPAM_DEFAULT_LAT,
+  longitude: UNPAM_DEFAULT_LNG,
 });
 
 const errorMessage = (e: unknown) =>
@@ -211,14 +215,24 @@ export default function BoardingHousesView() {
     }
   };
 
-  const handleAddRoom = async (
-    roomData: Omit<Room, 'id' | 'boardingHouseId'>
-  ): Promise<boolean> => {
+  const handleAddRoom = async (roomData: RoomForm): Promise<boolean> => {
     if (activeId === null) return false;
     try {
       const room = await api.createRoom(activeId, roomData);
       setRooms((prev) => [...prev, room]);
       notify('Kamar berhasil ditambahkan.');
+      return true;
+    } catch (e) {
+      notify(errorMessage(e), 'error');
+      return false;
+    }
+  };
+
+  const handleUpdateRoom = async (id: number, roomData: RoomForm): Promise<boolean> => {
+    try {
+      const updated = await api.updateRoom(id, roomData);
+      setRooms((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      notify('Kamar berhasil diperbarui.');
       return true;
     } catch (e) {
       notify(errorMessage(e), 'error');
@@ -309,6 +323,7 @@ export default function BoardingHousesView() {
               <RoomsTab
                 rooms={houseRooms}
                 onAddRoom={handleAddRoom}
+                onUpdateRoom={handleUpdateRoom}
                 onDeleteRoom={handleDeleteRoom}
               />
             )}

@@ -2,6 +2,10 @@ import { supabase } from '@/lib/supabase';
 import type { BoardingHouse, Bonus, Room } from '@/components/admin/boarding-houses/data';
 
 type HouseForm = Omit<BoardingHouse, 'id'>;
+type RoomForm = Omit<Room, 'id' | 'boardingHouseId'>;
+
+const UNPAM_DEFAULT_LAT = -6.121254714844191;
+const UNPAM_DEFAULT_LNG = 106.20603540755263;
 
 type HouseRow = {
   id: number;
@@ -54,8 +58,8 @@ const toHouse = (r: HouseRow): BoardingHouse => ({
   description: r.description ?? '',
   price: Number(r.price ?? 0),
   address: r.address ?? '',
-  latitude: Number(r.latitude ?? -6.1154),
-  longitude: Number(r.longitude ?? 106.1503),
+  latitude: Number(r.latitude ?? UNPAM_DEFAULT_LAT),
+  longitude: Number(r.longitude ?? UNPAM_DEFAULT_LNG),
   ownerWhatsapp: r.owner_whatsapp ?? '',
   owner_whatsapp: r.owner_whatsapp ?? '',
 });
@@ -71,8 +75,8 @@ const toHouseRow = (f: HouseForm) => {
     description: f.description || null,
     price: f.price,
     address: f.address || null,
-    latitude: f.latitude ?? -6.1154,
-    longitude: f.longitude ?? 106.1503,
+    latitude: f.latitude ?? UNPAM_DEFAULT_LAT,
+    longitude: f.longitude ?? UNPAM_DEFAULT_LNG,
     owner_whatsapp: waNumber || null,
   };
 };
@@ -87,6 +91,16 @@ const toRoom = (r: RoomRow): Room => ({
   pricePerMonth: Number(r.price_per_month ?? 0),
   isAvailable: r.is_available ?? true,
   images: r.images ?? [],
+});
+
+const toRoomRow = (input: RoomForm) => ({
+  name: input.name,
+  room_type: input.roomType,
+  square_feet: input.squareFeet,
+  capacity: input.capacity,
+  price_per_month: input.pricePerMonth,
+  is_available: input.isAvailable,
+  images: input.images,
 });
 
 const toBonus = (r: BonusRow): Bonus => ({
@@ -142,20 +156,25 @@ export async function deleteHouse(id: number): Promise<void> {
 
 export async function createRoom(
   boardingHouseId: number,
-  input: Omit<Room, 'id' | 'boardingHouseId'>
+  input: RoomForm
 ): Promise<Room> {
   const { data, error } = await supabase
     .from('rooms')
     .insert({
       boarding_house_id: boardingHouseId,
-      name: input.name,
-      room_type: input.roomType,
-      square_feet: input.squareFeet,
-      capacity: input.capacity,
-      price_per_month: input.pricePerMonth,
-      is_available: input.isAvailable,
-      images: input.images,
+      ...toRoomRow(input),
     })
+    .select()
+    .single();
+  if (error) fail(error);
+  return toRoom(data as RoomRow);
+}
+
+export async function updateRoom(id: number, input: RoomForm): Promise<Room> {
+  const { data, error } = await supabase
+    .from('rooms')
+    .update(toRoomRow(input))
+    .eq('id', id)
     .select()
     .single();
   if (error) fail(error);
@@ -189,7 +208,6 @@ export async function deleteBonus(id: number): Promise<void> {
 export async function fetchHouseDetail(idOrSlug: string) {
   const isNumericId = /^\d+$/.test(idOrSlug);
 
-  // Ambil hanya 1 kosan yang sesuai slug atau id
   let query = supabase.from('boarding_houses').select('*');
   query = isNumericId ? query.eq('id', Number(idOrSlug)) : query.eq('slug', idOrSlug);
 
@@ -199,7 +217,6 @@ export async function fetchHouseDetail(idOrSlug: string) {
 
   const house = toHouse(houseData as HouseRow);
 
-  // Ambil kamar & bonus HANYA untuk house.id ini
   const [roomsRes, bonusesRes] = await Promise.all([
     supabase.from('rooms').select('*').eq('boarding_house_id', house.id).order('id'),
     supabase.from('bonuses').select('*').eq('boarding_house_id', house.id).order('id'),
