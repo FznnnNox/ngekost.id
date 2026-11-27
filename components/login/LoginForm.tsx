@@ -92,7 +92,7 @@ export default function LoginForm() {
 
         if (signInError) {
           if (signInError.message.includes('Invalid login credentials')) {
-            throw new Error('Akun belum terdaftar atau email/password salah. Silakan buat akun terlebih dahulu.');
+            throw new Error('The account is not registered, or the email/password is incorrect. Please create an account first.');
           }
           throw new Error(signInError.message);
         }
@@ -230,7 +230,7 @@ export default function LoginForm() {
           </button>
 
           <div className="flex items-center justify-between pt-2 text-[13px] text-[#8a8a86]">
-            <span>{isRegister ? 'Sudah punya akun?' : 'Belum punya akun?'}</span>
+            <span>{isRegister ? 'Already have an account?' : 'Dont have an account yet?'}</span>
             <button
               type="button"
               onClick={() => {
@@ -240,12 +240,11 @@ export default function LoginForm() {
               }}
               className="font-medium text-[#111] underline underline-offset-4 hover:opacity-70"
             >
-              {isRegister ? 'Log in di sini' : 'Buat akun'}
+              {isRegister ? 'Log in here' : 'Create an account'}
             </button>
           </div>
 
           <p className="border-t border-black/5 pt-2 text-[13px] text-[#8a8a86]">
-            Not an admin?{' '}
             <Link href="/find-kos" className="font-medium text-[#111] underline underline-offset-4 hover:opacity-70">
               Browse kos
             </Link>
