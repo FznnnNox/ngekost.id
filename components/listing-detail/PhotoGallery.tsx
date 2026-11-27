@@ -9,12 +9,43 @@ type Props = {
   title: string;
 };
 
-/** Grid foto: 1 besar di kiri + 4 kecil (2×2) di kanan. Klik foto membuka lightbox. */
+/** Grid foto: 1 besar di kiri + thumbnail di kanan. Klik foto membuka lightbox. */
 export default function PhotoGallery({ photos, title }: Props) {
   const [index, setIndex] = useState<number | null>(null);
 
+  if (!photos || photos.length === 0) return null;
+
   const shown = photos.slice(0, 5);
   const extra = photos.length - shown.length;
+  const count = shown.length;
+
+  const getTileClass = (i: number) => {
+    if (count === 1) {
+      return 'col-span-2 h-[280px] sm:h-[360px] md:col-span-3 md:row-span-2 md:h-[420px]';
+    }
+
+    if (i === 0) {
+      return 'col-span-2 h-[260px] sm:h-[320px] md:col-span-1 md:row-span-2 md:h-[420px]';
+    }
+
+    // Jika hanya ada 2 foto, foto ke-2 mengisi penuh sisi kanan (2 kolom x 2 baris)
+    if (count === 2) {
+      return 'col-span-2 h-[220px] sm:h-[260px] md:col-span-2 md:row-span-2 md:h-full';
+    }
+
+    // Jika ada 3 foto, foto ke-2 di atas (2 kolom) dan foto ke-3 di bawah (2 kolom)
+    if (count === 3) {
+      return 'col-span-2 h-[180px] sm:h-[200px] md:col-span-2 md:row-span-1 md:h-full';
+    }
+
+    // Jika ada 4 foto: foto ke-2 & ke-3 di baris atas, foto ke-4 memanjang di baris bawah kanan
+    if (count === 4 && i === 3) {
+      return 'col-span-2 h-[180px] sm:h-[200px] md:col-span-2 md:row-span-1 md:h-full';
+    }
+
+    // Default (5 foto): 2x2 di sisi kanan mengikuti tinggi baris grid
+    return 'aspect-square sm:aspect-auto sm:h-[200px] md:aspect-auto md:h-full';
+  };
 
   return (
     <>
@@ -30,9 +61,7 @@ export default function PhotoGallery({ photos, title }: Props) {
               type="button"
               onClick={() => setIndex(i)}
               aria-label={`Open photo ${i + 1} of ${photos.length}`}
-              className={`group relative overflow-hidden rounded-[24px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
-                i === 0 ? 'col-span-2 h-[260px] md:col-span-1 md:row-span-2 md:h-auto' : 'aspect-square'
-              }`}
+              className={`group relative overflow-hidden rounded-[24px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${getTileClass(i)}`}
             >
               <img
                 src={src}
