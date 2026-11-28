@@ -2,7 +2,7 @@
 
 // import React, { useRef } from "react";
 // import dynamic from "next/dynamic";
-// import { Upload, X, Image as ImageIcon, MapPin } from "lucide-react";
+// import { Upload, X, Image as ImageIcon, MapPin, Phone } from "lucide-react";
 // import {
 //   categories,
 //   cities,
@@ -10,7 +10,7 @@
 //   type BoardingHouse,
 // } from "@/components/admin/boarding-houses/data";
 // import { RupiahInput } from "@/components/admin/boarding-houses/RupiahInput";
-// import { RichTextEditor } from '@/components/admin/ui/RichTextEditor';
+// import { RichTextEditor } from "@/components/admin/ui/RichTextEditor";
 
 // // Import Leaflet secara dinamis tanpa SSR
 // const LocationPickerMap = dynamic(
@@ -25,7 +25,10 @@
 //   },
 // );
 
-// type HouseForm = Omit<BoardingHouse, "id">;
+// type HouseForm = Omit<BoardingHouse, "id"> & {
+//   ownerWhatsapp?: string;
+//   owner_whatsapp?: string;
+// };
 
 // interface GeneralInfoTabProps {
 //   isCreating: boolean;
@@ -69,6 +72,8 @@
 //   onCancel,
 // }: GeneralInfoTabProps) {
 //   const fileInputRef = useRef<HTMLInputElement>(null);
+
+//   const ownerWhatsappValue = form.ownerWhatsapp ?? form.owner_whatsapp ?? "";
 
 //   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 //     const file = e.target.files?.[0];
@@ -211,7 +216,7 @@
 //         </select>
 //       </Field>
 
-//       <Field label="Starting Price / Month (Rp)*" className="sm:col-span-2">
+//       <Field label="Starting Price / Month (Rp)*">
 //         <RupiahInput
 //           required
 //           value={form.price}
@@ -219,6 +224,26 @@
 //           placeholder="Rp 650.000"
 //           className={inputClass}
 //         />
+//       </Field>
+
+//       <Field label="Owner WhatsApp Number*">
+//         <div className="relative flex items-center">
+//           <Phone className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-[#8a8a86]" />
+//           <input
+//             type="tel"
+//             required
+//             value={ownerWhatsappValue}
+//             onChange={(e) =>
+//               setForm((prev) => ({
+//                 ...prev,
+//                 ownerWhatsapp: e.target.value,
+//                 owner_whatsapp: e.target.value,
+//               }))
+//             }
+//             placeholder="e.g. 081234567890 or 6281234567890"
+//             className={`${inputClass} pl-9`}
+//           />
+//         </div>
 //       </Field>
 
 //       <Field label="Address*" className="sm:col-span-2">
@@ -286,12 +311,12 @@
 //       </div>
 
 //       <Field label="Description" className="sm:col-span-2">
-//   <RichTextEditor
-//     value={form.description}
-//     placeholder="Provide details about the environment, rules, and general facilities..."
-//     onChange={(html) => setForm((prev) => ({ ...prev, description: html }))}
-//   />
-// </Field>
+//         <RichTextEditor
+//           value={form.description}
+//           placeholder="Provide details about the environment, rules, and general facilities..."
+//           onChange={(html) => setForm((prev) => ({ ...prev, description: html }))}
+//         />
+//       </Field>
 
 //       <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:col-span-2 mt-2">
 //         <button type="button" onClick={onCancel} className={btnGhost}>
@@ -304,12 +329,20 @@
 //     </form>
 //   );
 // }
-
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { Upload, X, Image as ImageIcon, MapPin, Phone } from "lucide-react";
+import {
+  Upload,
+  X,
+  Image as ImageIcon,
+  MapPin,
+  Phone,
+  Link2,
+  Search,
+  CheckCircle2,
+} from "lucide-react";
 import {
   categories,
   cities,
@@ -319,7 +352,6 @@ import {
 import { RupiahInput } from "@/components/admin/boarding-houses/RupiahInput";
 import { RichTextEditor } from "@/components/admin/ui/RichTextEditor";
 
-// Import Leaflet secara dinamis tanpa SSR
 const LocationPickerMap = dynamic(
   () => import("@/components/admin/boarding-houses/LocationPickerMap"),
   {
@@ -346,6 +378,12 @@ interface GeneralInfoTabProps {
   onCancel: () => void;
 }
 
+type SearchResult = {
+  display_name: string;
+  lat: string;
+  lon: string;
+};
+
 const inputClass =
   "h-10 w-full rounded-xl border border-white/10 bg-[#262626] px-3 text-[13px] text-[#ededed] outline-none transition-colors placeholder:text-[#6b6b68] focus:border-[#e8e2b8]";
 const btnPrimary =
@@ -370,6 +408,66 @@ function Field({
   );
 }
 
+/**
+ * Mengekstrak koordinat (lat, lng) dari URL Google Maps atau teks koordinat langsung.
+ * Mendukung pola:
+ * - "@lat,lng"
+ * - "!3dLAT!4dLNG"
+ * - "?q=lat,lng" atau "&query=lat,lng"
+ * - teks mentah "lat, lng"
+ */
+function parseLatLngFromInput(raw: string): { lat: number; lng: number } | null {
+  const text = decodeURIComponent(raw.trim());
+  if (!text) return null;
+
+  const isValidCoord = (lat: number, lng: number) =>
+    !Number.isNaN(lat) &&
+    !Number.isNaN(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180 &&
+    !(lat === 0 && lng === 0);
+
+  // 1. Pola !3dLAT!4dLNG pada URL tempat/pin Google Maps
+  const dataPinMatch = text.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/i);
+  if (dataPinMatch) {
+    const lat = Number(dataPinMatch[1]);
+    const lng = Number(dataPinMatch[2]);
+    if (isValidCoord(lat, lng)) return { lat, lng };
+  }
+
+  // 2. Pola @lat,lng pada URL Google Maps
+  const atMatch = text.match(/@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/);
+  if (atMatch) {
+    const lat = Number(atMatch[1]);
+    const lng = Number(atMatch[2]);
+    if (isValidCoord(lat, lng)) return { lat, lng };
+  }
+
+  // 3. Pola query parameter ?q=lat,lng atau ?query=lat,lng atau ?ll=lat,lng
+  const paramMatch = text.match(
+    /(?:[?&](?:q|query|ll|center)=)(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/i,
+  );
+  if (paramMatch) {
+    const lat = Number(paramMatch[1]);
+    const lng = Number(paramMatch[2]);
+    if (isValidCoord(lat, lng)) return { lat, lng };
+  }
+
+  // 4. Teks koordinat langsung: "-6.121255, 106.206035"
+  const directMatch = text.match(
+    /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/,
+  );
+  if (directMatch) {
+    const lat = Number(directMatch[1]);
+    const lng = Number(directMatch[2]);
+    if (isValidCoord(lat, lng)) return { lat, lng };
+  }
+
+  return null;
+}
+
 export function GeneralInfoTab({
   isCreating,
   form,
@@ -379,6 +477,16 @@ export function GeneralInfoTab({
   onCancel,
 }: GeneralInfoTabProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [mapsInput, setMapsInput] = useState("");
+  const [mapsStatus, setMapsStatus] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
 
   const ownerWhatsappValue = form.ownerWhatsapp ?? form.owner_whatsapp ?? "";
 
@@ -397,6 +505,100 @@ export function GeneralInfoTab({
   const handleRemoveThumbnail = () => {
     setForm((prev) => ({ ...prev, thumbnail: "" }));
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const applyMapsInput = (value: string) => {
+    setMapsInput(value);
+    if (!value.trim()) {
+      setMapsStatus(null);
+      return;
+    }
+
+    const parsed = parseLatLngFromInput(value);
+    if (parsed) {
+      setForm((prev) => ({
+        ...prev,
+        latitude: parsed.lat,
+        longitude: parsed.lng,
+      }));
+      setMapsStatus({
+        type: "success",
+        text: `Koordinat ditemukan: ${parsed.lat}, ${parsed.lng}`,
+      });
+    } else if (/maps\.app\.goo\.gl|goo\.gl\/maps/i.test(value)) {
+      setMapsStatus({
+        type: "error",
+        text: "Link pendek tidak memuat koordinat langsung. Buka link di browser lalu copy URL panjangnya atau koordinat lat, lng.",
+      });
+    } else {
+      setMapsStatus({
+        type: "error",
+        text: "Format belum dikenali. Paste URL Google Maps atau koordinat seperti -6.121255, 106.206035.",
+      });
+    }
+  };
+
+  const handleSearchPlace = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    if (!q) return;
+
+    // Jika user mengetik koordinat atau URL Google Maps di kotak search, langsung proses juga
+    const parsed = parseLatLngFromInput(q);
+    if (parsed) {
+      setForm((prev) => ({
+        ...prev,
+        latitude: parsed.lat,
+        longitude: parsed.lng,
+      }));
+      setSearchResults([]);
+      setMapsStatus({
+        type: "success",
+        text: `Koordinat ditemukan: ${parsed.lat}, ${parsed.lng}`,
+      });
+      return;
+    }
+
+    setSearching(true);
+    setMapsStatus(null);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=id&q=${encodeURIComponent(q)}`;
+      const res = await fetch(url, {
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) throw new Error("Gagal mencari lokasi");
+      const data: SearchResult[] = await res.json();
+      setSearchResults(data);
+      if (data.length === 0) {
+        setMapsStatus({
+          type: "error",
+          text: "Lokasi tidak ditemukan. Coba kata kunci lain atau paste URL Google Maps.",
+        });
+      }
+    } catch {
+      setMapsStatus({
+        type: "error",
+        text: "Pencarian lokasi gagal. Coba lagi atau paste URL / koordinat Google Maps.",
+      });
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handlePickSearchResult = (item: SearchResult) => {
+    const lat = Number(Number(item.lat).toFixed(6));
+    const lng = Number(Number(item.lon).toFixed(6));
+    setForm((prev) => ({
+      ...prev,
+      latitude: lat,
+      longitude: lng,
+      address: prev.address || item.display_name,
+    }));
+    setSearchResults([]);
+    setMapsStatus({
+      type: "success",
+      text: `Dipilih: ${item.display_name}`,
+    });
   };
 
   return (
@@ -565,26 +767,133 @@ export function GeneralInfoTab({
         />
       </Field>
 
-      {/* Pin Lokasi Leaflet */}
-      <div className="sm:col-span-2 grid gap-2 rounded-2xl border border-white/10 bg-[#181818] p-4">
+      {/* Pin Lokasi Leaflet + Search + Paste URL Google Maps */}
+      <div className="sm:col-span-2 grid gap-3 rounded-2xl border border-white/10 bg-[#181818] p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="flex items-center gap-1.5 text-[12px] font-medium text-[#e8e2b8]">
-            <MapPin className="h-3.5 w-3.5" /> Pin Lokasi di Peta (Klik pada
-            peta untuk menandai)
+            <MapPin className="h-3.5 w-3.5" /> Pin Lokasi di Peta (Klik peta,
+            cari tempat, atau paste URL Google Maps)
           </span>
           <span className="text-[11px] text-[#8a8a86]">
-            {form.latitude.toFixed(5)}, {form.longitude.toFixed(5)}
+            {Number(form.latitude || 0).toFixed(6)},{" "}
+            {Number(form.longitude || 0).toFixed(6)}
           </span>
         </div>
+
+        {/* Paste URL Google Maps / Koordinat */}
+        <div className="grid gap-1.5">
+          <label className="text-[11px] text-[#8a8a86]">
+            Paste Google Maps URL or Coordinates
+          </label>
+          <div className="relative flex items-center">
+            <Link2 className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-[#8a8a86]" />
+            <input
+              type="text"
+              value={mapsInput}
+              onChange={(e) => applyMapsInput(e.target.value)}
+              onPaste={(e) => {
+                const pasted = e.clipboardData.getData("text");
+                if (pasted) {
+                  setTimeout(() => applyMapsInput(pasted), 0);
+                }
+              }}
+              placeholder="Paste link Google Maps atau -6.121255, 106.206035"
+              className={`${inputClass} pl-9 pr-9`}
+            />
+            {mapsInput && (
+              <button
+                type="button"
+                aria-label="Clear Google Maps input"
+                onClick={() => {
+                  setMapsInput("");
+                  setMapsStatus(null);
+                }}
+                className="absolute right-2.5 flex h-6 w-6 items-center justify-center rounded-full text-[#8a8a86] hover:bg-white/10 hover:text-white"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Search Lokasi */}
+        <div className="relative grid gap-1.5">
+          <label className="text-[11px] text-[#8a8a86]">Search Place / Street</label>
+          <div className="flex gap-2">
+            <div className="relative flex flex-1 items-center">
+              <Search className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-[#8a8a86]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSearchPlace(e);
+                  }
+                }}
+                placeholder="Cari lokasi (mis. UNPAM Serang, Pondok Indah Estate)..."
+                className={`${inputClass} pl-9`}
+              />
+            </div>
+            <button
+              type="button"
+              disabled={searching}
+              onClick={handleSearchPlace}
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-[#262626] px-4 text-[12px] font-medium text-[#ededed] transition-colors hover:border-[#e8e2b8] hover:text-[#e8e2b8] disabled:opacity-50"
+            >
+              {searching ? "Searching..." : "Search"}
+            </button>
+          </div>
+
+          {searchResults.length > 0 && (
+            <ul className="mt-1 divide-y divide-white/5 overflow-hidden rounded-xl border border-white/10 bg-[#222222] text-[12px]">
+              {searchResults.map((item, idx) => (
+                <li key={`${item.lat}-${item.lon}-${idx}`}>
+                  <button
+                    type="button"
+                    onClick={() => handlePickSearchResult(item)}
+                    className="flex w-full items-start gap-2 px-3 py-2.5 text-left transition-colors hover:bg-white/5"
+                  >
+                    <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#e8e2b8]" />
+                    <span className="line-clamp-2 text-[#ededed]">
+                      {item.display_name}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {mapsStatus && (
+          <div
+            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] ${
+              mapsStatus.type === "success"
+                ? "bg-emerald-500/10 text-emerald-300"
+                : "bg-amber-500/10 text-amber-300"
+            }`}
+          >
+            {mapsStatus.type === "success" && (
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+            )}
+            <span>{mapsStatus.text}</span>
+          </div>
+        )}
 
         <LocationPickerMap
           latitude={form.latitude}
           longitude={form.longitude}
-          onLocationChange={(lat, lng) =>
-            setForm((prev) => ({ ...prev, latitude: lat, longitude: lng }))
-          }
+          onLocationChange={(lat, lng) => {
+            setForm((prev) => ({ ...prev, latitude: lat, longitude: lng }));
+            setMapsStatus({
+              type: "success",
+              text: `Pin dipindahkan ke: ${lat}, ${lng}`,
+            });
+          }}
         />
 
+        {/* Input Latitude & Longitude tetap tersedia untuk penyesuaian halus */}
         <div className="grid grid-cols-2 gap-3 mt-1">
           <Field label="Latitude">
             <input
