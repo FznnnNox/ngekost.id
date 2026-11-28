@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Heart, ArrowLeft } from 'lucide-react';
 import ListingCard from '@/components/listings/ListingCard';
-import { type Listing } from '@/components/listings/data';
+import { type Listing, type Tag } from '@/components/listings/data';
 import * as api from '@/components/admin/boarding-houses/api';
 import { categories, cities } from '@/components/admin/boarding-houses/data';
 import { supabase } from '@/lib/supabase';
@@ -22,7 +22,7 @@ export default function WishlistPage() {
       try {
         const { data: authData } = await supabase.auth.getSession();
         const userId = authData.session?.user?.id || null;
-        
+
         if (!userId) {
           router.push('/login');
           return;
@@ -52,8 +52,7 @@ export default function WishlistPage() {
           const sizeStr = houseRooms.length > 0 ? `${houseRooms[0].squareFeet} m²` : '12 m²';
 
           const houseBonuses = bonuses.filter((b) => b.boardingHouseId === house.id);
-          const tags = houseBonuses.map((b) => b.name as any);
-          if (tags.length === 0) tags.push('Wi-Fi');
+          const tags = houseBonuses.map((b) => b.name as Tag);
 
           return {
             id: house.id,
@@ -66,7 +65,7 @@ export default function WishlistPage() {
             price: `Rp ${house.price.toLocaleString('id-ID')}`,
             size: sizeStr,
             left: totalLeft > 0 ? totalLeft : 1,
-            tags: tags,
+            tags,
             img: house.thumbnail || '/assets/image01.png',
           };
         });
